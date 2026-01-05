@@ -1,0 +1,769 @@
+<!-- Meilisearch Recommendations Widget for evidpo.ru -->
+<!--
+  Использование:
+
+  1. Страница курса (похожие по направлению):
+     <div id="evidpo-recommendations"
+          data-direction="Охрана труда"
+          data-exclude-id="12345">
+     </div>
+
+  2. Главная страница (популярные):
+     <div id="evidpo-recommendations"></div>
+
+  3. Страница категории:
+     <div id="evidpo-recommendations"
+          data-direction="Педагогика">
+     </div>
+
+  Параметры:
+  - data-direction: фильтр по направлению
+  - data-exclude-id: исключить курс по ID
+  - data-count: количество карточек (по умолчанию 4)
+  - data-title: кастомный заголовок
+-->
+
+<style>
+/* ========== ВИДЖЕТ РЕКОМЕНДАЦИЙ ========== */
+.evidpo-rec {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+/* Шапка */
+.evidpo-rec-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.evidpo-rec-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* Навигация */
+.evidpo-rec-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.evidpo-rec-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.evidpo-rec-btn:hover:not(:disabled) {
+  border-color: #7c3aed;
+  background: #faf5ff;
+}
+
+.evidpo-rec-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.evidpo-rec-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: #64748b;
+  transition: stroke 0.2s;
+}
+
+.evidpo-rec-btn:hover:not(:disabled) svg {
+  stroke: #7c3aed;
+}
+
+/* Контейнер карусели */
+.evidpo-rec-carousel {
+  position: relative;
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+.evidpo-rec-track {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 20px !important;
+  transition: transform 0.3s ease;
+  width: max-content;
+}
+
+/* Карточка курса */
+.evidpo-rec-card {
+  flex: 0 0 calc(25% - 15px) !important;
+  width: calc(25% - 15px) !important;
+  max-width: 280px !important;
+  min-width: 200px !important;
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  text-decoration: none !important;
+  transition: all 0.2s;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+.evidpo-rec-card:hover {
+  border-color: #7c3aed;
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Изображение */
+.evidpo-rec-image {
+  width: 100%;
+  height: 140px;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.evidpo-rec-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.evidpo-rec-placeholder {
+  width: 60px;
+  height: 75px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.evidpo-rec-placeholder svg {
+  width: 30px;
+  height: 30px;
+  stroke: #7c3aed;
+}
+
+/* Информация */
+.evidpo-rec-info {
+  padding: 14px;
+}
+
+.evidpo-rec-card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 39px;
+}
+
+.evidpo-rec-price {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 10px;
+}
+
+.evidpo-rec-link {
+  display: inline-block;
+  padding: 8px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  background: #fff;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.evidpo-rec-card:hover .evidpo-rec-link {
+  border-color: #7c3aed;
+  color: #7c3aed;
+}
+
+/* Индикаторы (точки) */
+.evidpo-rec-dots {
+  display: none;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.evidpo-rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.evidpo-rec-dot.active {
+  background: #7c3aed;
+  width: 24px;
+  border-radius: 4px;
+}
+
+/* Загрузка */
+.evidpo-rec-loading {
+  display: flex;
+  gap: 20px;
+}
+
+.evidpo-rec-skeleton {
+  flex: 0 0 calc(25% - 15px);
+  background: #f1f5f9;
+  border-radius: 12px;
+  height: 260px;
+  animation: evidpo-pulse 1.5s infinite;
+}
+
+@keyframes evidpo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Ошибка / пусто */
+.evidpo-rec-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+/* ========== АДАПТИВНОСТЬ ========== */
+
+/* Планшеты */
+@media (max-width: 1024px) {
+  .evidpo-rec-card {
+    flex: 0 0 calc(33.333% - 14px) !important;
+    width: calc(33.333% - 14px) !important;
+    min-width: 180px !important;
+  }
+
+  .evidpo-rec-skeleton {
+    flex: 0 0 calc(33.333% - 14px) !important;
+  }
+}
+
+/* Мобильные */
+@media (max-width: 768px) {
+  .evidpo-rec {
+    padding: 20px 12px !important;
+  }
+
+  .evidpo-rec-header {
+    margin-bottom: 16px !important;
+  }
+
+  .evidpo-rec-title {
+    font-size: 18px !important;
+  }
+
+  .evidpo-rec-nav {
+    display: none !important;
+  }
+
+  .evidpo-rec-carousel {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .evidpo-rec-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .evidpo-rec-track {
+    transition: none !important;
+  }
+
+  .evidpo-rec-card {
+    flex: 0 0 calc(50% - 10px) !important;
+    width: calc(50% - 10px) !important;
+    min-width: 140px !important;
+    max-width: none !important;
+    scroll-snap-align: start;
+  }
+
+  .evidpo-rec-skeleton {
+    flex: 0 0 calc(50% - 10px) !important;
+  }
+
+  .evidpo-rec-image {
+    height: 120px !important;
+  }
+
+  .evidpo-rec-info {
+    padding: 12px !important;
+  }
+
+  .evidpo-rec-card-title {
+    font-size: 13px !important;
+    min-height: 36px !important;
+  }
+
+  .evidpo-rec-price {
+    font-size: 15px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .evidpo-rec-link {
+    padding: 6px 14px !important;
+    font-size: 12px !important;
+  }
+
+  .evidpo-rec-dots {
+    display: flex !important;
+  }
+}
+
+/* Маленькие мобильные */
+@media (max-width: 480px) {
+  .evidpo-rec-title {
+    font-size: 16px !important;
+  }
+
+  .evidpo-rec-track {
+    gap: 12px !important;
+  }
+
+  .evidpo-rec-card {
+    flex: 0 0 calc(50% - 6px) !important;
+    width: calc(50% - 6px) !important;
+  }
+
+  .evidpo-rec-skeleton {
+    flex: 0 0 calc(50% - 6px) !important;
+  }
+
+  .evidpo-rec-image {
+    height: 100px !important;
+  }
+
+  .evidpo-rec-info {
+    padding: 10px !important;
+  }
+
+  .evidpo-rec-card-title {
+    font-size: 12px !important;
+    min-height: 34px !important;
+  }
+
+  .evidpo-rec-price {
+    font-size: 14px !important;
+  }
+}
+</style>
+
+<div id="evidpo-recommendations"></div>
+
+<script>
+(function() {
+  const MEILI_HOST = 'https://getmeilimeilisearchv190-production-6123b.up.railway.app';
+  const MEILI_KEY = 'b17c51453595ca37ff81b5c5b7ae8b7d0541d6b3e375fecd86831572dee58660';
+  const INDEX = 'courses';
+  const DEFAULT_COUNT = 4;
+  const MIN_COURSES_FOR_DIRECTION = 4;
+
+  // Получаем контейнер и параметры
+  const container = document.getElementById('evidpo-recommendations');
+  if (!container) return;
+
+  const direction = container.dataset.direction || null;
+  const excludeId = container.dataset.excludeId || null;
+  const count = parseInt(container.dataset.count) || DEFAULT_COUNT;
+  const customTitle = container.dataset.title || null;
+
+  // Состояние карусели
+  let currentIndex = 0;
+  let courses = [];
+  let cardsPerView = 4;
+
+  // Инициализация
+  init();
+
+  async function init() {
+    renderSkeleton();
+    await loadCourses();
+    render();
+    setupNavigation();
+    setupResize();
+  }
+
+  // Загрузка курсов
+  async function loadCourses() {
+    try {
+      // Определяем режим и заголовок
+      if (direction) {
+        // Режим: похожие по направлению
+        courses = await fetchByDirection(direction, excludeId, count + 2);
+
+        // Fallback: если мало курсов, добираем популярные
+        if (courses.length < MIN_COURSES_FOR_DIRECTION) {
+          const existingIds = courses.map(c => c.id);
+          if (excludeId) existingIds.push(excludeId);
+
+          const popular = await fetchPopular(count - courses.length + 2, existingIds);
+          courses = [...courses, ...popular];
+        }
+      } else {
+        // Режим: популярные курсы
+        courses = await fetchPopular(count + 2, excludeId ? [excludeId] : []);
+      }
+
+      // Ограничиваем количество
+      courses = courses.slice(0, count + 4); // Запас для прокрутки
+
+    } catch (error) {
+      console.error('Evidpo Recommendations: Load error', error);
+      courses = [];
+    }
+  }
+
+  // Запрос курсов по направлению
+  async function fetchByDirection(dir, excludeId, limit) {
+    const filters = [`direction = "${dir}"`];
+    if (excludeId) {
+      filters.push(`id != ${excludeId}`);
+    }
+
+    const response = await fetch(`${MEILI_HOST}/indexes/${INDEX}/search`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MEILI_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        q: '',
+        filter: filters.join(' AND '),
+        sort: ['students:desc'],
+        limit: limit
+      })
+    });
+
+    const data = await response.json();
+    return data.hits || [];
+  }
+
+  // Запрос популярных курсов
+  async function fetchPopular(limit, excludeIds = []) {
+    let filter = null;
+    if (excludeIds.length > 0) {
+      filter = excludeIds.map(id => `id != ${id}`).join(' AND ');
+    }
+
+    const body = {
+      q: '',
+      sort: ['students:desc'],
+      limit: limit
+    };
+
+    if (filter) {
+      body.filter = filter;
+    }
+
+    const response = await fetch(`${MEILI_HOST}/indexes/${INDEX}/search`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MEILI_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json();
+    return data.hits || [];
+  }
+
+  // Рендер скелетона загрузки
+  function renderSkeleton() {
+    container.innerHTML = `
+      <div class="evidpo-rec">
+        <div class="evidpo-rec-header">
+          <div style="height: 24px; width: 200px; background: #f1f5f9; border-radius: 6px;"></div>
+        </div>
+        <div class="evidpo-rec-loading">
+          <div class="evidpo-rec-skeleton"></div>
+          <div class="evidpo-rec-skeleton"></div>
+          <div class="evidpo-rec-skeleton"></div>
+          <div class="evidpo-rec-skeleton"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Основной рендер
+  function render() {
+    if (courses.length === 0) {
+      container.innerHTML = `
+        <div class="evidpo-rec">
+          <div class="evidpo-rec-empty">Нет рекомендаций</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Определяем заголовок
+    const title = getTitle();
+
+    // Генерируем карточки
+    const cardsHtml = courses.map(course => renderCard(course)).join('');
+
+    // Генерируем точки для мобильных
+    const dotsCount = Math.ceil(courses.length / 2);
+    const dotsHtml = Array.from({length: dotsCount}, (_, i) =>
+      `<button class="evidpo-rec-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></button>`
+    ).join('');
+
+    container.innerHTML = `
+      <div class="evidpo-rec">
+        <div class="evidpo-rec-header">
+          <h2 class="evidpo-rec-title">${title}</h2>
+          <div class="evidpo-rec-nav">
+            <button class="evidpo-rec-btn evidpo-rec-prev" disabled aria-label="Назад">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </button>
+            <button class="evidpo-rec-btn evidpo-rec-next" aria-label="Вперёд">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="evidpo-rec-carousel" style="position:relative;overflow:hidden;width:100%;">
+          <div class="evidpo-rec-track" style="display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;gap:20px;transition:transform 0.3s ease;width:max-content;">
+            ${cardsHtml}
+          </div>
+        </div>
+        <div class="evidpo-rec-dots">
+          ${dotsHtml}
+        </div>
+      </div>
+    `;
+
+    updateNavButtons();
+
+    // Принудительно применяем стили через JS (обход Creatium)
+    requestAnimationFrame(() => {
+      const track = container.querySelector('.evidpo-rec-track');
+      if (track) {
+        track.style.cssText = 'display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;gap:20px !important;width:max-content !important;';
+      }
+      const cards = container.querySelectorAll('.evidpo-rec-card');
+      cards.forEach(card => {
+        card.style.cssText = 'flex:0 0 220px !important;width:220px !important;min-width:200px !important;max-width:280px !important;display:block !important;';
+      });
+    });
+  }
+
+  // Рендер карточки
+  function renderCard(course) {
+    const price = course.price ? `${course.price.toLocaleString('ru-RU')} ₽` : '';
+    const imageUrl = course.image || '';
+
+    const imagePlaceholder = `
+      <div class="evidpo-rec-placeholder">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+        </svg>
+      </div>
+    `;
+
+    const cardStyle = 'flex:0 0 220px;width:220px;min-width:200px;max-width:280px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;text-decoration:none;display:block;box-sizing:border-box;';
+
+    return `
+      <a href="${course.url}" target="_blank" rel="noopener" class="evidpo-rec-card" style="${cardStyle}">
+        <div class="evidpo-rec-image">
+          ${imageUrl
+            ? `<img src="${imageUrl}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='${imagePlaceholder.replace(/'/g, "\\'").replace(/\n/g, '')}'">`
+            : imagePlaceholder
+          }
+        </div>
+        <div class="evidpo-rec-info">
+          <div class="evidpo-rec-card-title">${course.title}</div>
+          ${price ? `<div class="evidpo-rec-price">${price}</div>` : ''}
+          <span class="evidpo-rec-link">Подробнее</span>
+        </div>
+      </a>
+    `;
+  }
+
+  // Определение заголовка
+  function getTitle() {
+    if (customTitle) return customTitle;
+    if (direction) return `Похожие курсы`;
+    return 'Популярные курсы';
+  }
+
+  // Настройка навигации
+  function setupNavigation() {
+    const prevBtn = container.querySelector('.evidpo-rec-prev');
+    const nextBtn = container.querySelector('.evidpo-rec-next');
+    const track = container.querySelector('.evidpo-rec-track');
+    const carousel = container.querySelector('.evidpo-rec-carousel');
+    const dots = container.querySelectorAll('.evidpo-rec-dot');
+
+    if (!prevBtn || !nextBtn || !track) return;
+
+    // Кнопки навигации
+    prevBtn.addEventListener('click', () => {
+      if (currentIndex > 0) {
+        currentIndex--;
+        updateCarousel();
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      const maxIndex = Math.max(0, courses.length - cardsPerView);
+      if (currentIndex < maxIndex) {
+        currentIndex++;
+        updateCarousel();
+      }
+    });
+
+    // Точки на мобильных
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        const index = parseInt(dot.dataset.index);
+        currentIndex = index * 2; // 2 карточки на мобильных
+        updateCarousel();
+        updateDots();
+      });
+    });
+
+    // Отслеживание скролла на мобильных
+    if (carousel) {
+      carousel.addEventListener('scroll', () => {
+        if (window.innerWidth <= 768) {
+          const scrollLeft = carousel.scrollLeft;
+          const cardWidth = carousel.querySelector('.evidpo-rec-card')?.offsetWidth || 150;
+          const gap = 12;
+          const newIndex = Math.round(scrollLeft / (cardWidth + gap));
+          if (newIndex !== currentIndex) {
+            currentIndex = newIndex;
+            updateDots();
+          }
+        }
+      });
+    }
+  }
+
+  // Обновление карусели
+  function updateCarousel() {
+    const track = container.querySelector('.evidpo-rec-track');
+    if (!track) return;
+
+    // На мобильных используем нативный скролл
+    if (window.innerWidth <= 768) {
+      const carousel = container.querySelector('.evidpo-rec-carousel');
+      const card = track.querySelector('.evidpo-rec-card');
+      if (carousel && card) {
+        const cardWidth = card.offsetWidth;
+        const gap = 12;
+        carousel.scrollTo({
+          left: currentIndex * (cardWidth + gap),
+          behavior: 'smooth'
+        });
+      }
+    } else {
+      // На десктопе используем transform
+      const card = track.querySelector('.evidpo-rec-card');
+      if (card) {
+        const cardWidth = card.offsetWidth;
+        const gap = 20;
+        const offset = currentIndex * (cardWidth + gap);
+        track.style.transform = `translateX(-${offset}px)`;
+      }
+    }
+
+    updateNavButtons();
+    updateDots();
+  }
+
+  // Обновление состояния кнопок
+  function updateNavButtons() {
+    const prevBtn = container.querySelector('.evidpo-rec-prev');
+    const nextBtn = container.querySelector('.evidpo-rec-next');
+
+    if (!prevBtn || !nextBtn) return;
+
+    const maxIndex = Math.max(0, courses.length - cardsPerView);
+
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex >= maxIndex;
+  }
+
+  // Обновление точек
+  function updateDots() {
+    const dots = container.querySelectorAll('.evidpo-rec-dot');
+    const activeDotIndex = Math.floor(currentIndex / 2);
+
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === activeDotIndex);
+    });
+  }
+
+  // Обработка ресайза
+  function setupResize() {
+    const updateCardsPerView = () => {
+      const width = window.innerWidth;
+      if (width <= 768) {
+        cardsPerView = 2;
+      } else if (width <= 1024) {
+        cardsPerView = 3;
+      } else {
+        cardsPerView = 4;
+      }
+
+      // Сбрасываем позицию при изменении размера
+      currentIndex = 0;
+      const track = container.querySelector('.evidpo-rec-track');
+      if (track) {
+        track.style.transform = 'translateX(0)';
+      }
+      updateNavButtons();
+      updateDots();
+    };
+
+    updateCardsPerView();
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(updateCardsPerView, 150);
+    });
+  }
+
+})();
+</script>
