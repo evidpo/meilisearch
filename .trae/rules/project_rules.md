@@ -262,12 +262,6 @@ const ITEMS_PER_PAGE = 6;  // Изменить на нужное
 4. Обновить ключ в n8n workflow
 ```
 
-### Текущие ключи (сменить!):
-```
-Master: 16mx5lg484k1bwyfamrxp6gql25stxu8
-Search: b17c51453595ca37ff81b5c5b7ae8b7d0541d6b3e375fecd86831572dee58660
-```
-
 ---
 
 **Версия:** 1.0  
