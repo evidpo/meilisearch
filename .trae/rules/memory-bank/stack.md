@@ -46,6 +46,7 @@ API Endpoint: courses_for_meilisearch
 ### Creatium (сайт)
 ```
 Production: https://evidpo.ru
+Тестовая страница: https://evidpo.ru/search-test
 Виджет: Встраивается через Custom HTML блок
 ```
 
