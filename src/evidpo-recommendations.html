@@ -125,6 +125,26 @@
   stroke: #94a3b8;
 }
 
+/* Фоновый placeholder для ошибки загрузки */
+.evidpo-rec-image.error {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.evidpo-rec-image.error::after {
+  content: '';
+  width: 40px;
+  height: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E");
+  background-size: contain;
+}
+
+.evidpo-rec-image.error img {
+  display: none;
+}
+
 /* Информация */
 .evidpo-rec-info {
   padding: 16px;
@@ -529,21 +549,10 @@
     const price = course.price ? `${course.price.toLocaleString('ru-RU')} ₽` : '';
     const imageUrl = course.image || '';
 
-    const placeholder = `
-      <div class="evidpo-rec-placeholder">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
-        </svg>
-      </div>
-    `;
-
     return `
       <a href="${course.url}" target="_blank" rel="noopener" class="evidpo-rec-card">
-        <div class="evidpo-rec-image">
-          ${imageUrl
-            ? `<img src="${imageUrl}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='${placeholder.replace(/'/g, "\\'").replace(/\n/g, '').replace(/\s+/g, ' ')}'">`
-            : placeholder
-          }
+        <div class="evidpo-rec-image${!imageUrl ? ' error' : ''}">
+          ${imageUrl ? `<img src="${imageUrl}" alt="" loading="lazy" onerror="this.parentElement.classList.add('error')">` : ''}
         </div>
         <div class="evidpo-rec-info">
           <div class="evidpo-rec-card-title">${course.title}</div>
