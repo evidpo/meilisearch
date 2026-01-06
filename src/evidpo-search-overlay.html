@@ -730,10 +730,14 @@ mark {
   let isLoading = false;
   let categoriesLoaded = false;
   
+  // Скрыть/показать виджет рекомендаций (решает проблему z-index в Creatium)
+  const recWidget = document.getElementById('evidpo-recommendations');
+
   // Открыть оверлей
   trigger.addEventListener('click', () => {
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
+    if (recWidget) recWidget.style.display = 'none';
     input.focus();
     if (!categoriesLoaded) {
       loadCategories();
@@ -742,19 +746,20 @@ mark {
       loadPopularCourses();
     }
   });
-  
+
   // Закрыть оверлей
   closeBtn.addEventListener('click', closeOverlay);
-  
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && overlay.classList.contains('active')) {
       closeOverlay();
     }
   });
-  
+
   function closeOverlay() {
     overlay.classList.remove('active');
     document.body.style.overflow = '';
+    if (recWidget) recWidget.style.display = '';
   }
   
   // Очистить поиск
