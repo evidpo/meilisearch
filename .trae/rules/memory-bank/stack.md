@@ -75,13 +75,21 @@ Production: https://evidpo.ru
 ```bash
 # Searchable attributes (по умолчанию все)
 # Filterable attributes
-filterableAttributes: ["direction"]
+filterableAttributes: ["direction", "code"]
 
 # Sortable attributes
 sortableAttributes: ["price", "students"]
 
 # Displayed attributes
 displayedAttributes: ["*"]
+```
+
+### Обновление filterableAttributes
+```bash
+curl -X PATCH 'https://getmeilimeilisearchv190-production-6123b.up.railway.app/indexes/courses/settings' \
+  -H 'Authorization: Bearer MASTER_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"filterableAttributes": ["direction", "code"]}'
 ```
 
 ---

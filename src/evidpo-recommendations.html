@@ -1,5 +1,21 @@
 <!-- Виджет рекомендаций курсов для evidpo.ru -->
-<!-- Параметры: data-direction, data-exclude-id, data-count -->
+<!--
+  АВТООПРЕДЕЛЕНИЕ КОНТЕКСТА ПО URL:
+  - /k/637        → страница курса (ищет похожие по направлению)
+  - /k/all        → каталог (популярные курсы)
+  - /Охрана труда → страница направления (курсы по направлению)
+  - /             → главная (популярные курсы)
+  - /cart и др.   → системные страницы (рекомендации)
+
+  РУЧНОЕ ПЕРЕОПРЕДЕЛЕНИЕ (опционально):
+  - data-direction  — направление для фильтрации
+  - data-exclude-id — ID курса для исключения
+  - data-count      — количество карточек (по умолчанию 4)
+  - data-title      — заголовок секции
+
+  ТРЕБОВАНИЯ К MEILISEARCH:
+  - filterableAttributes должен содержать: ["direction", "code"]
+-->
 <style>
 /* ========== КОНТЕЙНЕР ========== */
 .evidpo-rec {
@@ -375,14 +391,30 @@
   const MEILI_KEY = 'b17c51453595ca37ff81b5c5b7ae8b7d0541d6b3e375fecd86831572dee58660';
   const INDEX = 'courses';
 
-  // Получаем контейнер и параметры
+  // Системные пути, которые НЕ являются страницами направлений
+  const SYSTEM_PATHS = [
+    '/cart', '/checkout', '/login', '/register', '/profile',
+    '/about', '/contacts', '/privacy', '/terms', '/faq',
+    '/search', '/favorites', '/orders', '/404', '/500'
+  ];
+
+  // Получаем контейнер
   const container = document.getElementById('evidpo-recommendations');
   if (!container) return;
 
-  const direction = container.getAttribute('data-direction') || '';
-  const excludeId = container.getAttribute('data-exclude-id') || '';
+  // Параметры из data-атрибутов (для ручного переопределения)
+  const manualDirection = container.getAttribute('data-direction');
+  const manualExcludeId = container.getAttribute('data-exclude-id');
+  const manualTitle = container.getAttribute('data-title');
   const count = parseInt(container.getAttribute('data-count')) || 4;
-  const title = container.getAttribute('data-title') || 'Специально для вас';
+
+  // Контекст страницы (определяется автоматически или из атрибутов)
+  let context = {
+    type: 'default',
+    direction: manualDirection || '',
+    excludeId: manualExcludeId || '',
+    title: manualTitle || 'Рекомендуем вам'
+  };
 
   // Состояние карусели
   let courses = [];
@@ -397,6 +429,11 @@
     showLoading();
 
     try {
+      // Автоопределение контекста, если не заданы вручную
+      if (!manualDirection && !manualExcludeId) {
+        context = await detectPageContext();
+      }
+
       courses = await fetchRecommendations();
       if (courses.length > 0) {
         render();
@@ -413,11 +450,171 @@
     window.addEventListener('resize', debounce(handleResize, 200));
   }
 
-  // Загрузка рекомендаций из Meilisearch
+  // ========== АВТООПРЕДЕЛЕНИЕ КОНТЕКСТА ==========
+
+  /**
+   * Определяет тип страницы и контекст по URL
+   *
+   * Типы страниц:
+   * - /k/637      → страница курса (код = 637)
+   * - /k/all      → каталог
+   * - /Охрана труда → страница направления
+   * - /           → главная
+   * - /cart и др. → системные страницы
+   */
+  async function detectPageContext() {
+    const path = decodeURIComponent(window.location.pathname);
+
+    // 1. Страница курса: /k/{код}
+    const courseMatch = path.match(/^\/k\/(\d+)$/);
+    if (courseMatch) {
+      const courseCode = courseMatch[1];
+      return await getCoursepageContext(courseCode);
+    }
+
+    // 2. Каталог: /k/all
+    if (path === '/k/all') {
+      return {
+        type: 'catalog',
+        direction: '',
+        excludeId: '',
+        title: manualTitle || 'Популярные курсы'
+      };
+    }
+
+    // 3. Главная страница
+    if (path === '/' || path === '') {
+      return {
+        type: 'home',
+        direction: '',
+        excludeId: '',
+        title: manualTitle || 'Популярные курсы'
+      };
+    }
+
+    // 4. Системные страницы (корзина, профиль и т.д.)
+    const isSystemPage = SYSTEM_PATHS.some(sp =>
+      path === sp || path.startsWith(sp + '/')
+    );
+    if (isSystemPage) {
+      return {
+        type: 'system',
+        direction: '',
+        excludeId: '',
+        title: manualTitle || 'Рекомендуем вам'
+      };
+    }
+
+    // 5. Страница направления: /{название направления}
+    // Проверяем, существует ли такое направление в Meilisearch
+    const potentialDirection = path.slice(1); // убираем начальный /
+    if (potentialDirection && !potentialDirection.includes('/')) {
+      const directionExists = await checkDirectionExists(potentialDirection);
+      if (directionExists) {
+        return {
+          type: 'direction',
+          direction: potentialDirection,
+          excludeId: '',
+          title: manualTitle || 'Курсы по направлению'
+        };
+      }
+    }
+
+    // 6. По умолчанию — популярные курсы
+    return {
+      type: 'default',
+      direction: '',
+      excludeId: '',
+      title: manualTitle || 'Рекомендуем вам'
+    };
+  }
+
+  /**
+   * Получает контекст для страницы курса
+   * Ищет курс по коду, берёт его direction для рекомендаций
+   */
+  async function getCoursepageContext(courseCode) {
+    try {
+      // Ищем курс по коду
+      const response = await fetch(`${MEILI_HOST}/indexes/${INDEX}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MEILI_KEY}`
+        },
+        body: JSON.stringify({
+          q: '',
+          filter: `code = "${courseCode}"`,
+          limit: 1
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Meilisearch error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.hits && data.hits.length > 0) {
+        const course = data.hits[0];
+        return {
+          type: 'course',
+          direction: course.direction || '',
+          excludeId: course.id || '',
+          title: manualTitle || 'Похожие курсы'
+        };
+      }
+    } catch (error) {
+      console.error('Ошибка получения данных курса:', error);
+    }
+
+    // Fallback если курс не найден
+    return {
+      type: 'course',
+      direction: '',
+      excludeId: '',
+      title: manualTitle || 'Рекомендуем вам'
+    };
+  }
+
+  /**
+   * Проверяет, существует ли направление в Meilisearch
+   */
+  async function checkDirectionExists(directionName) {
+    try {
+      const response = await fetch(`${MEILI_HOST}/indexes/${INDEX}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MEILI_KEY}`
+        },
+        body: JSON.stringify({
+          q: '',
+          filter: `direction = "${directionName}"`,
+          limit: 1
+        })
+      });
+
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      return data.hits && data.hits.length > 0;
+    } catch (error) {
+      console.error('Ошибка проверки направления:', error);
+      return false;
+    }
+  }
+
+  // ========== ЗАГРУЗКА РЕКОМЕНДАЦИЙ ==========
+
+  /**
+   * Загружает рекомендации в зависимости от контекста
+   */
   async function fetchRecommendations() {
     let results = [];
+    const { direction, excludeId } = context;
 
-    // Если указано направление — ищем по нему
+    // Если есть направление — ищем по нему
     if (direction) {
       results = await searchCourses({
         filter: excludeId
@@ -491,7 +688,7 @@
     container.innerHTML = `
       <div class="evidpo-rec">
         <div class="evidpo-rec-header">
-          <h3 class="evidpo-rec-title">${title}</h3>
+          <h3 class="evidpo-rec-title">${context.title}</h3>
         </div>
         <div class="evidpo-rec-loading">${skeletons}</div>
       </div>
@@ -520,7 +717,7 @@
     container.innerHTML = `
       <div class="evidpo-rec">
         <div class="evidpo-rec-header">
-          <h3 class="evidpo-rec-title">${title}</h3>
+          <h3 class="evidpo-rec-title">${context.title}</h3>
           <div class="evidpo-rec-nav">
             <button class="evidpo-rec-btn evidpo-rec-prev" aria-label="Назад" disabled>
               <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
