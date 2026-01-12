@@ -1,11 +1,9 @@
 # 🔍 Поисковый виджет evidpo.ru
 
-Полноэкранный оверлей поиска курсов для сайта evidpo.ru на Creatium.
+Полноэкранный оверлей и виджет рекоммендаций поиска курсов для сайта evidpo.ru на Creatium.
 
 **Поисковый движок:** Meilisearch (Railway)  
 **Синхронизация:** n8n + Directual  
-**Время ответа:** ~5ms  
-**Курсов в индексе:** 201
 
 ---
 
@@ -17,58 +15,6 @@
 - 📱 Адаптивный дизайн (6 брейкпоинтов)
 - ♾️ Пагинация "Показать ещё"
 - 🖼️ Карточки курсов с изображениями
-
----
-
-## 🚀 Быстрый старт
-
-### 1. Локальное тестирование
-
-```bash
-# Просто открыть HTML файл
-open src/evidpo-search-overlay.html
-```
-
-### 2. Установка на Creatium
-
-```
-1. Скопировать содержимое src/evidpo-search-overlay.html
-2. Creatium → Добавить блок → Custom HTML
-3. Вставить код
-4. Опубликовать
-```
-
-### 3. Добавить кнопку поиска в меню
-
-```html
-<!-- Кнопка уже есть в виджете с классом evidpo-search-trigger -->
-<!-- Или создать свою кнопку: -->
-<button onclick="document.getElementById('evidpoOverlay').classList.add('active')">
-  Поиск
-</button>
-```
-
----
-
-## 📁 Структура проекта
-
-```
-evidpo-search/
-├── .trae/rules/
-│   ├── project_rules.md          # Правила работы
-│   └── memory-bank/
-│       ├── brief.md              # Суть проекта
-│       ├── stack.md              # Технологии, URLs
-│       ├── constraints.md        # Ограничения
-│       └── features.md           # Функции
-├── src/
-│   └── evidpo-search-overlay.html
-├── docs/
-│   ├── meilisearch-setup.md
-│   └── n8n-workflow.md
-├── README.md
-└── TASKS.md
-```
 
 ---
 
@@ -127,48 +73,7 @@ Directual API → n8n Transform → Meilisearch
 2. Найти workflow "Sync Directual → Meilisearch"
 3. Execute Workflow
 
-**Автоматически:** Настроить Cron триггер (TODO)
-
----
-
-## 🎨 Кастомизация
-
-### Цвета (CSS переменные в коде)
-
-```css
-/* Основной цвет — фиолетовый */
-background: #7c3aed;  /* Кнопки */
-border-color: #7c3aed;  /* Hover эффекты */
-```
-
-### Количество карточек
-
-```javascript
-const ITEMS_PER_PAGE = 6;  // Изменить на нужное
-```
-
-### Маппинг категорий → запросы
-
-```javascript
-const directionToQuery = {
-  'Первая помощь': 'первая помощь',
-  'Автошколы': 'автошкола',
-  // Добавить новые...
-};
-```
-
----
-
-## 📱 Адаптивность
-
-| Ширина | Колонки | Особенности |
-|--------|---------|-------------|
-| 1400px+ | 4 | Полный вид |
-| 1200px | 3 | Узкий сайдбар |
-| 1024px | 2 | Мобильный layout |
-| 768px | 2 | Компактные отступы |
-| 480px | 2 | Маленькие карточки |
-| 360px | 1 | Вертикальные карточки |
+**Автоматически:** Настроен Cron триггер (TODO)
 
 ---
 
@@ -201,5 +106,98 @@ const directionToQuery = {
 
 ---
 
-**Версия:** 1.0  
-**Обновлено:** 2026-01-05
+# 🔍 evidpo-search
+
+Поисковый виджет для evidpo.ru — мгновенный поиск по курсам.
+
+## Как это работает
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                         СИНХРОНИЗАЦИЯ                            │
+│                                                                  │
+│   Directual ──[unsynced=true]──► n8n ──► Meilisearch             │
+│      │                            │           │                  │
+│      │   При изменении курса      │           │                  │
+│      │   ставится unsynced=true   │           │                  │
+│      │                            │           │                  │
+│      ◄────[unsynced=false]────────┘           │                  │
+│         После синхронизации                   │                  │
+│         флаг сбрасывается                     │                  │
+└──────────────────────────────────────────────────────────────────┘
+                                                │
+                                                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                          ПОИСК                                   │
+│                                                                  │
+│   Пользователь ──► Виджет ──► Meilisearch (~5ms) ──► Результаты  │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## Ключевые файлы
+
+| Файл | Что делает |
+|------|------------|
+| `src/evidpo-search-overlay.html` | Виджет поиска (вставлять в body Creatium) |
+| `src/evidpo-recommendations.html` | Блок "Похожие курсы" |
+
+## Логика синхронизации (n8n)
+
+**Триггер:** каждые 5 минут (Schedule Trigger)
+
+**Шаги:**
+1. Запрос курсов с `unsynced=true` из Directual
+2. Если `direction_of_study = "УПРАЗДНЕНО"` → удалить из Meilisearch
+3. Остальные → добавить/обновить в Meilisearch
+4. Сбросить `unsynced=false` в Directual
+
+**Результат:** синхронизируются только изменённые курсы, не все 200+.
+
+## Быстрый старт
+
+1. **Виджет поиска** → скопировать `src/evidpo-search-overlay.html` в Creatium (Свой код → body)
+2. **Кнопка поиска** → добавить в нужное место: `<button data-evidpo-search>Поиск</button>`
+3. **n8n workflow** → импортировать JSON, настроить credentials
+
+## MCP (Model Context Protocol)
+
+Workflow доступен как MCP-инструмент для Claude и других AI.
+
+**Server URL:**
+```
+https://n8n.evidpoai.ru/mcp-server/http
+```
+
+**Подключение (Claude Desktop / Cursor / etc):**
+```json
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway",
+        "--streamableHttp",
+        "https://n8n.evidpoai.ru/mcp-server/http",
+        "--header",
+        "authorization:Bearer <YOUR_ACCESS_TOKEN>"
+      ]
+    }
+  }
+}
+```
+
+---
+
+## API ключи
+
+```
+Meilisearch Host: railway.app (см. .trae/rules/memory-bank/stack.md)
+Search Key: безопасен для браузера (только чтение)
+Master Key: только в n8n! (запись/удаление)
+```
+
+---
+
+Подробная документация: `.trae/rules/memory-bank/`
