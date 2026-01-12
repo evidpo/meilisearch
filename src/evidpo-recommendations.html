@@ -1,5 +1,11 @@
 <!-- Виджет рекомендаций курсов для evidpo.ru -->
 <!--
+  ОПТИМИЗАЦИИ ПРОИЗВОДИТЕЛЬНОСТИ (v2.0):
+  - Intersection Observer: загрузка только когда виджет виден во viewport
+  - requestIdleCallback: инициализация в idle время браузера (с fallback для Safari)
+  - localStorage кэширование: 5 минут для рекомендаций (по направлениям)
+  - Параллельные запросы: Promise.all для одновременной загрузки данных
+
   АВТООПРЕДЕЛЕНИЕ КОНТЕКСТА ПО URL:
   - /k/637        → страница курса (ищет похожие по направлению)
   - /k/all        → каталог (популярные курсы)
@@ -391,6 +397,10 @@
   const MEILI_KEY = 'b17c51453595ca37ff81b5c5b7ae8b7d0541d6b3e375fecd86831572dee58660';
   const INDEX = 'courses';
 
+  // Конфигурация кэширования (TTL в минутах)
+  const CACHE_TTL_RECOMMENDATIONS = 5;  // 5 минут для рекомендаций
+  const CACHE_PREFIX = 'evidpo_rec_';
+
   // Системные пути, которые НЕ являются страницами направлений
   const SYSTEM_PATHS = [
     '/cart', '/checkout', '/login', '/register', '/profile',
@@ -420,9 +430,94 @@
   let courses = [];
   let currentPage = 0;
   let cardsPerPage = 4;
+  let isInitialized = false;
 
-  // Запуск
-  init();
+  // ========== КЭШИРОВАНИЕ ==========
+
+  /**
+   * Сохраняет данные в localStorage с временной меткой
+   */
+  function saveToCache(key, data, ttlMinutes) {
+    try {
+      const item = {
+        data: data,
+        expires: Date.now() + (ttlMinutes * 60 * 1000)
+      };
+      localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(item));
+    } catch (e) {
+      // localStorage может быть недоступен или переполнен
+      console.warn('Cache save failed:', e);
+    }
+  }
+
+  /**
+   * Читает данные из кэша, проверяя срок годности
+   */
+  function getFromCache(key) {
+    try {
+      const item = localStorage.getItem(CACHE_PREFIX + key);
+      if (!item) return null;
+
+      const parsed = JSON.parse(item);
+      if (Date.now() > parsed.expires) {
+        localStorage.removeItem(CACHE_PREFIX + key);
+        return null;
+      }
+      return parsed.data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Генерирует ключ кэша на основе контекста
+   */
+  function getCacheKey() {
+    const { type, direction, excludeId } = context;
+    if (direction) {
+      return `dir_${direction}_ex_${excludeId || 'none'}`;
+    }
+    return `type_${type}`;
+  }
+
+  // ========== ОТЛОЖЕННЫЙ ЗАПУСК ==========
+
+  /**
+   * Запускает функцию в idle время или через setTimeout (fallback для Safari)
+   */
+  function runWhenIdle(fn) {
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(fn, { timeout: 300 });
+    } else {
+      setTimeout(fn, 50);
+    }
+  }
+
+  /**
+   * Intersection Observer — запускаем init только когда виджет виден
+   */
+  function setupLazyInit() {
+    // Если Intersection Observer не поддерживается — запускаем сразу
+    if (!('IntersectionObserver' in window)) {
+      runWhenIdle(init);
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !isInitialized) {
+        isInitialized = true;
+        observer.disconnect();
+        runWhenIdle(init);
+      }
+    }, {
+      rootMargin: '200px' // Начинаем загрузку за 200px до появления
+    });
+
+    observer.observe(container);
+  }
+
+  // Запуск с ленивой загрузкой
+  setupLazyInit();
 
   async function init() {
     updateCardsPerPage();
@@ -434,7 +529,21 @@
         context = await detectPageContext();
       }
 
-      courses = await fetchRecommendations();
+      // Проверяем кэш
+      const cacheKey = getCacheKey();
+      const cachedCourses = getFromCache(cacheKey);
+
+      if (cachedCourses) {
+        // Используем данные из кэша
+        courses = cachedCourses;
+      } else {
+        // Загружаем из Meilisearch и сохраняем в кэш
+        courses = await fetchRecommendations();
+        if (courses.length > 0) {
+          saveToCache(cacheKey, courses, CACHE_TTL_RECOMMENDATIONS);
+        }
+      }
+
       if (courses.length > 0) {
         render();
         setupNavigation();
@@ -609,37 +718,49 @@
 
   /**
    * Загружает рекомендации в зависимости от контекста
+   * Оптимизировано: параллельные запросы для ускорения
    */
   async function fetchRecommendations() {
-    let results = [];
     const { direction, excludeId } = context;
 
-    // Если есть направление — ищем по нему
+    // Если есть направление — запускаем ОБА запроса параллельно
     if (direction) {
-      results = await searchCourses({
-        filter: excludeId
-          ? `direction = "${direction}" AND id != "${excludeId}"`
-          : `direction = "${direction}"`,
-        sort: ['students:desc'],
-        limit: count + 2 // запас на случай fallback
-      });
+      const [directionResults, popularResults] = await Promise.all([
+        // Запрос 1: курсы по направлению
+        searchCourses({
+          filter: excludeId
+            ? `direction = "${direction}" AND id != "${excludeId}"`
+            : `direction = "${direction}"`,
+          sort: ['students:desc'],
+          limit: count
+        }),
+        // Запрос 2: популярные курсы (на случай если по направлению мало)
+        searchCourses({
+          filter: excludeId ? `id != "${excludeId}"` : null,
+          sort: ['students:desc'],
+          limit: count
+        })
+      ]);
+
+      // Если по направлению достаточно — используем их
+      if (directionResults.length >= count) {
+        return directionResults.slice(0, count);
+      }
+
+      // Иначе добираем из популярных (исключая дубликаты)
+      const directionIds = new Set(directionResults.map(c => c.id));
+      const uniquePopular = popularResults.filter(c => !directionIds.has(c.id));
+      const combined = [...directionResults, ...uniquePopular];
+
+      return combined.slice(0, count);
     }
 
-    // Fallback: если мало результатов — добираем популярные
-    if (results.length < count) {
-      const excludeIds = results.map(c => c.id);
-      if (excludeId) excludeIds.push(excludeId);
-
-      const popular = await searchCourses({
-        filter: excludeIds.length > 0
-          ? excludeIds.map(id => `id != "${id}"`).join(' AND ')
-          : null,
-        sort: ['students:desc'],
-        limit: count - results.length
-      });
-
-      results = [...results, ...popular];
-    }
+    // Если нет направления — просто популярные курсы
+    const results = await searchCourses({
+      filter: excludeId ? `id != "${excludeId}"` : null,
+      sort: ['students:desc'],
+      limit: count
+    });
 
     return results.slice(0, count);
   }
