@@ -729,14 +729,14 @@
         // Запрос 1: курсы по направлению
         searchCourses({
           filter: excludeId
-            ? `direction = "${direction}" AND id != "${excludeId}"`
+            ? `direction = "${direction}" AND NOT id = "${excludeId}"`
             : `direction = "${direction}"`,
           sort: ['students:desc'],
           limit: count
         }),
         // Запрос 2: популярные курсы (на случай если по направлению мало)
         searchCourses({
-          filter: excludeId ? `id != "${excludeId}"` : null,
+          filter: excludeId ? `NOT id = "${excludeId}"` : null,
           sort: ['students:desc'],
           limit: count
         })
@@ -757,7 +757,7 @@
 
     // Если нет направления — просто популярные курсы
     const results = await searchCourses({
-      filter: excludeId ? `id != "${excludeId}"` : null,
+      filter: excludeId ? `NOT id = "${excludeId}"` : null,
       sort: ['students:desc'],
       limit: count
     });
