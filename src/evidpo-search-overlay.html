@@ -340,6 +340,9 @@ mark{background:#fef08a;color:inherit;padding:0 2px;border-radius:2px}
   // ============================================================
   async function loadCategories() {
     try {
+      // Число курсов по направлениям берём через facetDistribution —
+      // точно по всем документам индекса, один дешёвый запрос (limit:0),
+      // без выкачивания тысяч документов в браузер.
       const response = await fetch(`${MEILI_HOST}/indexes/${INDEX}/search`, {
         method: 'POST',
         headers: {
@@ -348,30 +351,17 @@ mark{background:#fef08a;color:inherit;padding:0 2px;border-radius:2px}
         },
         body: JSON.stringify({
           q: '',
-          limit: 1000,
-          attributesToRetrieve: ['direction', 'students']
+          limit: 0,
+          facets: ['direction']
         })
       });
 
       const data = await response.json();
-      const hits = data.hits || [];
+      const facet = (data.facetDistribution && data.facetDistribution.direction) || {};
 
-      // Агрегируем студентов по направлениям
-      const directionStats = {};
-      hits.forEach(hit => {
-        const dir = hit.direction;
-        if (dir) {
-          if (!directionStats[dir]) {
-            directionStats[dir] = { count: 0, students: 0 };
-          }
-          directionStats[dir].count++;
-          directionStats[dir].students += (hit.students || 0);
-        }
-      });
-
-      // Сортируем по количеству студентов
-      const sorted = Object.entries(directionStats)
-        .sort((a, b) => b[1].students - a[1].students);
+      // Сортируем направления по числу курсов (desc)
+      const sorted = Object.entries(facet)
+        .sort((a, b) => b[1] - a[1]);
 
       // Часто ищут (топ-4)
       const searchIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
