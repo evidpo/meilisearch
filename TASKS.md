@@ -123,23 +123,23 @@ POST /indexes/courses/search
 
 ## 🎯 Следующая задача
 
-**Завершить миграцию с Railway (2026-06-16)**
+**✅ Миграция с Railway завершена (2026-06-16)**
 
 ```
 1. ✅ Meilisearch self-hosted на evidpo (search.evidpo.ru), master key ротирован
 2. ✅ Данные (8060 док.) + settings + синонимы зеркалированы
 3. ✅ Виджеты переключены на search.evidpo.ru + новый search-key
-4. ⬜ Перенацелить n8n workflow на http://meilisearch:7700 + новый master key
-5. ⬜ Вставить обновлённые виджеты в Creatium
-6. ⬜ Через 2 дня стабильной работы — выключить и удалить сервис на Railway
+4. ✅ n8n workflow перенацелен на http://meilisearch:7700 + новый master key (проверено: tasks #11–12)
+5. ✅ Обновлённые виджеты вставлены в Creatium
+6. ✅ Railway погашен и удалён (/health → 404)
 ```
 
 ### Бэклог (выявлено при миграции)
 ```
-🔴 Категории/«часто ищут» считаются по выборке 1000 из 8060 док. (loadCategories)
-   → перейти на facetDistribution по direction (точно и дёшево)
+✅ Категории через facetDistribution по direction (исправлено, commit b367075)
 🔴 n8n: настроить Schedule-триггер (доки противоречат — фактически синк ручной)
 🟡 Свести противоречия в доках про логику синка (инкрементальный unsynced vs полный)
+🟢 ~94 курса с пустым/кривым direction в Directual (в категории не попадают)
 ```
 
 ---
