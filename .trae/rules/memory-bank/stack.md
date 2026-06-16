@@ -19,15 +19,22 @@
 
 ## 🌐 Сервисы и URLs
 
-### Meilisearch (Railway)
+### Meilisearch (self-hosted на сервере evidpo, Docker + Traefik)
 ```
-Host: https://getmeilimeilisearchv190-production-6123b.up.railway.app
+Host (внешний, для браузера):  https://search.evidpo.ru
+Host (внутренний, для n8n):    http://meilisearch:7700   (docker-сеть root_default, без TLS)
+Сервер:  evidpo (31.128.43.138), контейнер `meilisearch`, образ getmeili/meilisearch:v1.9
+Том данных: ${DATA_FOLDER}/meili_data → /meili_data  (DATA_FOLDER=/root/n8n/)
+TLS: Let's Encrypt через Traefik (certresolver mytlschallenge)
 Index: courses
-Documents: 201
+Documents: 8060
 
-Master Key: 16mx5lg484k1bwyfamrxp6gql25stxu8
-Search Key: b17c51453595ca37ff81b5c5b7ae8b7d0541d6b3e375fecd86831572dee58660
+Master Key: <хранится в /root/.env на сервере evidpo (MEILI_MASTER_KEY), в репозиторий не коммитится>
+Search Key (read-only, для виджетов): 481488201223fa89d66079b70b6e6d1b5a428fe3d7a9d13f29ce508d72edf25a
 ```
+
+> ⚠️ Раньше Meilisearch жил на Railway. С 2026-06-16 перенесён на собственный VPS evidpo.
+> Railway гасится после периода стабильной работы.
 
 ### n8n Workflow
 ```
@@ -46,7 +53,6 @@ API Endpoint: courses_for_meilisearch
 ### Creatium (сайт)
 ```
 Production: https://evidpo.ru
-Тестовая страница: https://evidpo.ru/search-test
 Виджет: Встраивается через Custom HTML блок
 ```
 
@@ -71,26 +77,29 @@ Production: https://evidpo.ru
 }
 ```
 
-### Настройки индекса
+### Настройки индекса (актуально, зеркалировано с Railway 2026-06-16)
 ```bash
-# Searchable attributes (по умолчанию все)
+# Searchable attributes (порядок важен — влияет на ранжирование)
+searchableAttributes: ["title", "full_title", "qualification", "direction", "topics", "code"]
+
 # Filterable attributes
-filterableAttributes: ["direction", "code"]
+filterableAttributes: ["code", "direction", "id"]
 
 # Sortable attributes
 sortableAttributes: ["price", "students"]
 
 # Displayed attributes
 displayedAttributes: ["*"]
+
+# Synonyms — 9 групп (настроены вручную, НЕ пересоздаются n8n!):
+#   охрана труда → от, охраны труда, охране труда
+#   педагог → учитель, преподаватель;  повышение квалификации → пк
+#   пожарная безопасность → пб, птм;  электробезопасность → электрика
+#   переподготовка, бухгалтер, воспитатель, модельер — см. /indexes/courses/settings
 ```
 
-### Обновление filterableAttributes
-```bash
-curl -X PATCH 'https://getmeilimeilisearchv190-production-6123b.up.railway.app/indexes/courses/settings' \
-  -H 'Authorization: Bearer MASTER_KEY' \
-  -H 'Content-Type: application/json' \
-  -d '{"filterableAttributes": ["direction", "code"]}'
-```
+> ⚠️ При пересоздании индекса синонимы и searchable/filterable надо восстановить вручную
+> (PATCH /indexes/courses/settings с Master Key) — n8n-синк льёт только документы.
 
 ---
 
@@ -151,4 +160,4 @@ activeCourses.map(c => ({
 
 ---
 
-**Последнее обновление:** 2026-01-05
+**Последнее обновление:** 2026-06-16 (миграция Railway → self-hosted на evidpo)

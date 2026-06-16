@@ -1,6 +1,13 @@
 # Настройка Meilisearch
 
-## 🚀 Развёртывание на Railway
+> ✅ **Актуально (с 2026-06-16): Meilisearch self-hosted на VPS evidpo** через Docker + Traefik.
+> Сервис `meilisearch` в `/root/docker-compose.yml` на сервере evidpo (31.128.43.138):
+> образ `getmeili/meilisearch:v1.9`, том `${DATA_FOLDER}/meili_data`, внешний адрес
+> `https://search.evidpo.ru` (TLS через Traefik, certresolver `mytlschallenge`),
+> внутренний адрес для n8n — `http://meilisearch:7700`. `MEILI_MASTER_KEY` — в `/root/.env`.
+> Раздел ниже про Railway оставлен как исторический (старый хостинг гасится после миграции).
+
+## 🚀 Развёртывание на Railway (архив — больше не используется)
 
 ### 1. Создание сервиса
 
@@ -148,9 +155,9 @@ curl -X POST 'https://[MEILI_HOST]/indexes/courses/documents/delete-batch' \
 ## 📝 Текущие настройки проекта
 
 ```
-Host: https://getmeilimeilisearchv190-production-6123b.up.railway.app
+Host: https://search.evidpo.ru
 Index: courses
-Documents: 201
+Documents: 8060
 
 filterableAttributes: ["direction"]
 sortableAttributes: ["price", "students"]

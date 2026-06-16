@@ -9,12 +9,12 @@
 
 | Статус | Функция | Описание |
 |--------|---------|----------|
-| ✅ | Индекс courses | 201 документ, ~5ms ответ |
-| ✅ | Searchable fields | Все поля по умолчанию |
-| ✅ | Filterable: direction | Фильтрация по направлению |
+| ✅ | Индекс courses | 8060 документов, ~5ms ответ |
+| ✅ | Searchable fields | title, full_title, qualification, direction, topics, code |
+| ✅ | Filterable: code, direction, id | Фильтр по направлению/коду + исключение по id |
 | ✅ | Sortable: price, students | Сортировка по цене и популярности |
 | ✅ | Displayed: all | Все поля возвращаются |
-| 🟡 | Synonyms | Синонимы для поиска |
+| ✅ | Synonyms | 9 групп синонимов (охрана труда, педагог, ПБ/ПТМ и др.) |
 | 🟡 | Stop words | Игнорируемые слова |
 | 🟢 | Typo tolerance tuning | Настройка опечаток |
 
@@ -116,9 +116,9 @@
 | Статус | Функция | Описание |
 |--------|---------|----------|
 | ✅ | Search-only API key | Только чтение |
-| ✅ | CORS настроен | Railway по умолчанию |
-| 🔴 | Сменить Master Key | После публикации в репо |
-| 🟡 | Rate limiting | На стороне Railway |
+| ✅ | CORS настроен | Self-hosted Meilisearch (CORS открыт) за Traefik |
+| ✅ | Ротация Master Key | Новый ключ при миграции 2026-06-16, только в /root/.env |
+| 🟡 | Rate limiting | На стороне Traefik (не настроено) |
 
 ---
 
@@ -134,4 +134,4 @@
 
 ---
 
-**Последнее обновление:** 2026-01-05
+**Последнее обновление:** 2026-06-16

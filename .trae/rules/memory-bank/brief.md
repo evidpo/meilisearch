@@ -2,7 +2,7 @@
 
 **Название:** Поисковый виджет evidpo.ru  
 **Платформа сайта:** Creatium  
-**Поисковый движок:** Meilisearch (Railway)  
+**Поисковый движок:** Meilisearch (self-hosted, search.evidpo.ru)  
 **Синхронизация:** n8n  
 **Стадия:** MVP готов, в эксплуатации
 

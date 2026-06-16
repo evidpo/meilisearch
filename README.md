@@ -2,7 +2,7 @@
 
 Полноэкранный оверлей и виджет рекоммендаций поиска курсов для сайта evidpo.ru на Creatium.
 
-**Поисковый движок:** Meilisearch (Railway)  
+**Поисковый движок:** Meilisearch (self-hosted, search.evidpo.ru)  
 **Синхронизация:** n8n + Directual  
 
 ---
@@ -23,7 +23,7 @@
 | Компонент | Технология |
 |-----------|------------|
 | Поиск | Meilisearch v1.9 |
-| Хостинг поиска | Railway |
+| Хостинг поиска | Self-hosted (Docker на VPS evidpo, `search.evidpo.ru`) |
 | Синхронизация | n8n |
 | Источник данных | Directual |
 | Сайт | Creatium |
@@ -36,8 +36,8 @@
 ### Поиск курсов
 
 ```bash
-curl -X POST 'https://getmeilimeilisearchv190-production-6123b.up.railway.app/indexes/courses/search' \
-  -H 'Authorization: Bearer b17c51453595ca37ff81b5c5b7ae8b7d0541d6b3e375fecd86831572dee58660' \
+curl -X POST 'https://search.evidpo.ru/indexes/courses/search' \
+  -H 'Authorization: Bearer 481488201223fa89d66079b70b6e6d1b5a428fe3d7a9d13f29ce508d72edf25a' \
   -H 'Content-Type: application/json' \
   -d '{
     "q": "охрана труда",
@@ -79,12 +79,12 @@ Directual API → n8n Transform → Meilisearch
 
 ## 🔐 Безопасность
 
-⚠️ **После клонирования репозитория:**
+⚠️ **Правила:**
 
-1. Сменить `MEILI_MASTER_KEY` в Railway
-2. Сгенерировать новый Search API Key
-3. Обновить ключ в `src/evidpo-search-overlay.html`
-4. Обновить ключ в n8n workflow
+1. `MEILI_MASTER_KEY` хранится только в `/root/.env` на сервере evidpo — никогда в репо/браузере
+2. В виджетах (`src/`) используется только read-only **Search Key**
+3. При ротации ключей: новый master в `/root/.env` + `docker compose up -d meilisearch`, новый search-key → виджеты + n8n
+4. Search Key в `src/*.html` безопасен для публикации (только чтение индекса `courses`)
 
 ---
 
@@ -193,7 +193,7 @@ https://n8n.evidpoai.ru/mcp-server/http
 ## API ключи
 
 ```
-Meilisearch Host: railway.app (см. .trae/rules/memory-bank/stack.md)
+Meilisearch Host: https://search.evidpo.ru (см. .trae/rules/memory-bank/stack.md)
 Search Key: безопасен для браузера (только чтение)
 Master Key: только в n8n! (запись/удаление)
 ```

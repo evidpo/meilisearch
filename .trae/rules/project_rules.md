@@ -144,11 +144,11 @@ evidpo-search/
 
 ```bash
 # Проверить статус индекса
-curl -X GET 'https://getmeilimeilisearchv190-production-6123b.up.railway.app/indexes/courses/stats' \
+curl -X GET 'https://search.evidpo.ru/indexes/courses/stats' \
   -H 'Authorization: Bearer SEARCH_KEY'
 
 # Поиск
-curl -X POST 'https://getmeilimeilisearchv190-production-6123b.up.railway.app/indexes/courses/search' \
+curl -X POST 'https://search.evidpo.ru/indexes/courses/search' \
   -H 'Authorization: Bearer SEARCH_KEY' \
   -H 'Content-Type: application/json' \
   -d '{"q": "охрана труда", "limit": 10}'
@@ -264,7 +264,7 @@ const ITEMS_PER_PAGE = 6;  // Изменить на нужное
 ### ⚠️ КРИТИЧНО после публикации репозитория:
 
 ```
-1. Сменить MEILI_MASTER_KEY в Railway
+1. Ротировать MEILI_MASTER_KEY в /root/.env на сервере evidpo
 2. Сгенерировать новый Search Key
 3. Обновить ключ в виджете
 4. Обновить ключ в n8n workflow
